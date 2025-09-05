@@ -1,124 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Invoice Management System</title>
-<script defer src="/static/main.js"></script>
-<style>
-  body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg,#74ebd5,#9face6); padding:30px; color:#333; }
-  h1 { text-align:center; color:#fff; margin-bottom:30px; text-shadow: 2px 2px 8px rgba(0,0,0,0.3);}
-  .card { background: rgba(255,255,255,0.95); padding:20px; border-radius:16px; margin-bottom:30px; box-shadow:0 8px 16px rgba(0,0,0,0.15);}
-  form { display:flex; gap:10px; flex-wrap:wrap;}
-  input, select, button { padding:10px; border-radius:8px; border:1px solid #ccc; font-size:14px; transition:0.3s;}
-  input:focus, select:focus { border-color:#3498db; outline:none; box-shadow:0 0 6px rgba(52,152,219,0.5);}
-  button { font-weight:bold; cursor:pointer; transition:all 0.3s ease;}
-  table { width:100%; border-collapse:collapse; margin-top:15px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 6px 12px rgba(0,0,0,0.1);}
-  th, td { padding:12px; text-align:center; border-bottom:1px solid #eee;}
-  th { background:#3498db; color:#fff; text-transform:uppercase;}
-  tr:hover { background:#f1f9ff;}
-  a { color:#3498db; text-decoration:none; font-weight:bold;}
-  a:hover { text-decoration:underline;}
-  tr.rejected { background:#ffe5e5 !important;}
-  /* Approve hover green */
-  .btn-approve { background:#2ecc71; color:#fff; border:none;}
-  .btn-approve:hover { background:#27ae60; }
-  /* Reject hover red */
-  .btn-reject { background:#e74c3c; color:#fff; border:none;}
-  .btn-reject:hover { background:#c0392b; }
-  /* Remove button */
-  .btn-remove { background:#e67e22; color:#fff; border:none;}
-  .btn-remove:hover { background:#d35400; }
-</style>
+  <meta charset="UTF-8">
+  <title>Invoice Management System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 30px;
+      background: linear-gradient(135deg, #74ebd5, #9face6);
+      color: #333;
+    }
+    h1 { text-align: center; margin-bottom: 30px; color: #fff; text-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
+
+    .card { background: rgba(255,255,255,0.95); border-radius: 12px; padding: 20px; margin-bottom: 30px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+
+    form { display: flex; gap: 10px; flex-wrap: wrap; }
+    input, select, button { padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; transition: 0.3s; }
+    button { background: #3498db; color: #fff; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #2980b9; transform: scale(1.05); }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+    th, td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background: #3498db; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
+    tr:hover { background: #f1f9ff; transition: background 0.3s ease; }
+    tr.rejected { background: #ffe5e5 !important; }
+
+    a { color: #3498db; text-decoration: none; font-weight: bold; }
+    a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
+  <h1>📄 Invoice Management System</h1>
 
-<h1>📄 Invoice Management System</h1>
+  <!-- Upload Invoice -->
+  <div class="card">
+    <h2>Upload Invoice</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="file" id="fileInput" required>
+      <button type="submit">Upload</button>
+    </form>
+  </div>
 
-<!-- Upload Invoice -->
-<div class="card">
-  <h2>Upload Invoice</h2>
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload</button>
-  </form>
-</div>
+  <!-- Create Vendor -->
+  <div class="card">
+    <h2>Create Vendor</h2>
+    <form action="/create_vendor" method="post">
+      <input type="text" name="name" placeholder="Vendor Name" required>
+      <button type="submit">Add Vendor</button>
+    </form>
+  </div>
 
-<!-- Create Vendor -->
-<div class="card">
-  <h2>Create Vendor</h2>
-  <form action="/create_vendor" method="post">
-    <input type="text" name="name" placeholder="Vendor Name" required>
-    <button type="submit">Add Vendor</button>
-  </form>
-</div>
+  <!-- Create Purchase Order -->
+  <div class="card">
+    <h2>Create Purchase Order</h2>
+    <form action="/create_po" method="post">
+      <input type="text" name="po_number" placeholder="PO Number" required>
+      <select name="vendor_id" required>
+        {% for vendor in vendors %}
+          <option value="{{ vendor.id }}">{{ vendor.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+      <button type="submit">Create PO</button>
+    </form>
+  </div>
 
-<!-- Create Purchase Order -->
-<div class="card">
-  <h2>Create Purchase Order</h2>
-  <form action="/create_po" method="post">
-    <input type="text" name="po_number" placeholder="PO Number" required>
-    <select name="vendor_id" required>
-      {% for vendor in vendors %}
-        <option value="{{ vendor.id }}">{{ vendor.name }}</option>
+  <!-- Invoice List -->
+  <div class="card">
+    <h2>Invoices</h2>
+    <table id="invoiceTable">
+      <tr>
+        <th>ID</th>
+        <th>Vendor</th>
+        <th>Invoice #</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>File</th>
+        <th>Action</th>
+      </tr>
+      {% for invoice in invoices %}
+      <tr id="invoice-{{ invoice.id }}" class="{% if invoice.status == 'rejected' %}rejected{% endif %}">
+        <td>{{ invoice.id }}</td>
+        <td>{{ invoice.vendor.name if invoice.vendor else "N/A" }}</td>
+        <td>{{ invoice.invoice_number }}</td>
+        <td>{{ invoice.total_amount }}</td>
+        <td>{{ invoice.status }}</td>
+        <td>
+          {% if invoice.filename %}
+            <a href="/uploads/{{ invoice.filename }}" target="_blank">Open Invoice</a>
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>
+          {% if invoice.status.lower() == "unpaid" %}
+          <form action="/action" method="post" style="display:inline;">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <button name="action" value="approve">Approve</button>
+            <button name="action" value="reject">Reject</button>
+          </form>
+          {% elif invoice.status.lower() == "approved" %}
+          <form action="/action" method="post" style="display:inline;">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <button name="action" value="edit">Edit</button>
+          </form>
+          {% elif invoice.status.lower() == "rejected" %}
+          <form action="/delete_invoice" method="post" style="display:inline;">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <button style="background:#e74c3c;">Remove</button>
+          </form>
+          {% else %}
+            {{ invoice.status }}
+          {% endif %}
+        </td>
+      </tr>
       {% endfor %}
-    </select>
-    <input type="number" step="0.01" name="amount" placeholder="Amount" required>
-    <button type="submit">Create PO</button>
-  </form>
-</div>
+    </table>
+  </div>
 
-<!-- Invoice List -->
-<div class="card">
-  <h2>Invoices</h2>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>Vendor</th>
-      <th>Customer</th>
-      <th>Invoice #</th>
-      <th>Total</th>
-      <th>Status</th>
-      <th>PO</th>
-      <th>Action</th>
-      <th>File</th>
-    </tr>
-    {% for invoice in invoices %}
-    <tr class="{% if invoice.status == 'rejected' %}rejected{% endif %}">
-      <td>{{ invoice.id }}</td>
-      <td>{{ invoice.vendor.name if invoice.vendor else "-" }}</td>
-      <td>{{ invoice.customer_name or "-" }}</td>
-      <td>{{ invoice.invoice_number }}</td>
-      <td>{{ invoice.total_amount }}</td>
-      <td>{{ invoice.status }}</td>
-      <td>{{ invoice.po.po_number if invoice.po else "-" }}</td>
-      <td>
-        {% if invoice.status == "pending" %}
-        <form action="/action" method="post" style="display:inline-block;">
-          <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
-          <input type="hidden" name="action" value="approve">
-          <button class="btn-approve">Approve</button>
-        </form>
-        <form action="/action" method="post" style="display:inline-block;">
-          <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
-          <input type="hidden" name="action" value="reject">
-          <button class="btn-reject">Reject</button>
-        </form>
-        {% elif invoice.status == "rejected" %}
-        <form action="/delete_invoice" method="post" style="display:inline-block;">
-          <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
-          <button class="btn-remove">Remove</button>
-        </form>
-        {% endif %}
-      </td>
-      <td>
-        {% if invoice.filename %}
-          <a href="/uploads/{{ invoice.filename }}" target="_blank">Open Invoice</a>
-        {% else %}-{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
+  <script>
+    // Upload Invoice Dynamically
+    const uploadForm = document.getElementById('uploadForm');
+    const invoiceTable = document.getElementById('invoiceTable');
 
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      const response = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await response.json();
+
+      if (data.success) {
+        const inv = data.invoice;
+        const newRow = document.createElement('tr');
+        newRow.id = `invoice-${inv.id}`;
+        if(inv.status.toLowerCase() === 'rejected') newRow.classList.add('rejected');
+        newRow.innerHTML = `
+          <td>${inv.id}</td>
+          <td>${inv.vendor_name}</td>
+          <td>${inv.invoice_number}</td>
+          <td>${inv.total_amount}</td>
+          <td>${inv.status}</td>
+          <td><a href="/uploads/${inv.filename}" target="_blank">Open Invoice</a></td>
+          <td>
+            ${inv.status.toLowerCase() === "unpaid" ? `
+              <form action="/action" method="post" style="display:inline;">
+                <input type="hidden" name="invoice_id" value="${inv.id}">
+                <button name="action" value="approve">Approve</button>
+                <button name="action" value="reject">Reject</button>
+              </form>` : inv.status.toLowerCase() === "approved" ? `
+              <form action="/action" method="post" style="display:inline;">
+                <input type="hidden" name="invoice_id" value="${inv.id}">
+                <button name="action" value="edit">Edit</button>
+              </form>` : inv.status.toLowerCase() === "rejected" ? `
+              <form action="/delete_invoice" method="post" style="display:inline;">
+                <input type="hidden" name="invoice_id" value="${inv.id}">
+                <button style="background:#e74c3c;">Remove</button>
+              </form>` : inv.status }
+          </td>
+        `;
+        invoiceTable.appendChild(newRow);
+        fileInput.value = '';
+      } else {
+        alert("Invoice upload failed.");
+      }
+    });
+
+    // Edit Approved Invoices Dynamically
+    document.addEventListener('click', async (e) => {
+      if (e.target && e.target.name === 'action' && e.target.value === 'edit') {
+        e.preventDefault();
+        const form = e.target.closest('form');
+        const invoiceId = form.querySelector('input[name="invoice_id"]').value;
+        const newStatus = prompt("Enter new status (unpaid/rejected):", "unpaid");
+
+        if (newStatus && (newStatus.toLowerCase() === "unpaid" || newStatus.toLowerCase() === "rejected")) {
+          const formData = new FormData();
+          formData.append('invoice_id', invoiceId);
+          formData.append('action', newStatus.toLowerCase());
+
+          const response = await fetch('/action', { method: 'POST', body: formData });
+          if (response.ok) {
+            const row = document.getElementById(`invoice-${invoiceId}`);
+            row.querySelector('td:nth-child(5)').textContent = newStatus.toLowerCase();
+            if (newStatus.toLowerCase() === "rejected") {
+              row.classList.add('rejected');
+            } else {
+              row.classList.remove('rejected');
+            }
+          } else {
+            alert("Failed to update invoice status.");
+          }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
