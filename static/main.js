@@ -64,18 +64,18 @@ function addInvoiceRow(inv) {
   if (!table) return;
 
   const tr = document.createElement("tr");
-  tr.className = inv.status === "rejected" ? "rejected" : "";
+  tr.id = `invoice-${inv.id}`;
+  if (inv.status.toLowerCase() === "rejected") tr.classList.add("rejected");
 
   tr.innerHTML = `
     <td>${inv.id}</td>
     <td>${inv.vendor_name || "-"}</td>
-    <td>${inv.customer || "-"}</td>
     <td>${inv.invoice_number || "-"}</td>
     <td>${inv.total_amount != null ? inv.total_amount.toFixed(2) : "-"}</td>
     <td>${inv.status}</td>
     <td>${inv.po ? inv.po.po_number : "-"}</td>
-    <td>${renderActions(inv)}</td>
     <td>${inv.filename ? `<a href="/uploads/${inv.filename}" target="_blank">Open Invoice</a>` : "-"}</td>
+    <td>${renderActions(inv)}</td>
   `;
 
   table.appendChild(tr);
@@ -83,35 +83,78 @@ function addInvoiceRow(inv) {
 
 // Generate action buttons for each invoice
 function renderActions(inv) {
-  if (inv.status === "pending") {
+  if (inv.status.toLowerCase() === "pending" || inv.status.toLowerCase() === "unpaid") {
     return `
-      <form action="/action" method="post" style="display:inline-block; margin-right:4px;">
+      <form class="action-form" style="display:inline-block; margin-right:4px;">
         <input type="hidden" name="invoice_id" value="${inv.id}" />
         <input type="hidden" name="action" value="approve" />
-        <button class="btn-approve">Approve</button>
+        <button type="button" class="btn-approve">Approve</button>
       </form>
-      <form action="/action" method="post" style="display:inline-block; margin-right:4px;">
+      <form class="action-form" style="display:inline-block; margin-right:4px;">
         <input type="hidden" name="invoice_id" value="${inv.id}" />
         <input type="hidden" name="action" value="reject" />
-        <button class="btn-reject">Reject</button>
+        <button type="button" class="btn-reject">Reject</button>
       </form>
-      <form action="/action" method="post" style="display:inline-block;">
+      <form class="action-form" style="display:inline-block;">
         <input type="hidden" name="invoice_id" value="${inv.id}" />
         <input type="hidden" name="action" value="force_match" />
         <input name="note" placeholder="PO id" style="width:60px;" />
-        <button>Force Match</button>
+        <button type="button">Force Match</button>
       </form>
     `;
-  } else if (inv.status === "rejected") {
+  } else if (inv.status.toLowerCase() === "rejected") {
     return `
-      <form action="/delete_invoice" method="post" style="display:inline-block;">
+      <form class="action-form" style="display:inline-block;">
         <input type="hidden" name="invoice_id" value="${inv.id}" />
-        <button class="btn-remove">Remove</button>
+        <input type="hidden" name="action" value="delete" />
+        <button type="button" class="btn-remove" style="background:#e74c3c;">Remove</button>
       </form>
     `;
-  } else if (inv.status === "approved") {
-    return "-";
+  } else if (inv.status.toLowerCase() === "approved") {
+    return `
+      <form class="action-form" style="display:inline-block;">
+        <input type="hidden" name="invoice_id" value="${inv.id}" />
+        <input type="hidden" name="action" value="edit" />
+        <button type="button" class="btn-edit">Edit</button>
+      </form>
+    `;
   }
-
   return "-";
 }
+
+// Handle all dynamic button clicks
+document.addEventListener("click", async (e) => {
+  const btn = e.target;
+  if (!btn.closest(".action-form")) return;
+
+  const form = btn.closest(".action-form");
+  const invoiceId = form.querySelector("input[name='invoice_id']").value;
+  let action = form.querySelector("input[name='action']").value;
+  let note = form.querySelector("input[name='note']") ? form.querySelector("input[name='note']").value : null;
+
+  if (btn.classList.contains("btn-edit")) {
+    e.preventDefault();
+    const newStatus = prompt("Enter new status (unpaid/rejected):", "unpaid");
+    if (!newStatus || !["unpaid","rejected"].includes(newStatus.toLowerCase())) return alert("Invalid status!");
+    action = newStatus.toLowerCase();
+  } else if (btn.classList.contains("btn-remove")) {
+    action = "delete";
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("invoice_id", invoiceId);
+    formData.append("action", action);
+    if (note) formData.append("note", note);
+
+    let url = "/action";
+    if (action === "delete") url = "/delete_invoice";
+
+    const res = await fetch(url, { method: "POST", body: formData });
+    if (res.ok) fetchInvoices();
+    else alert("Action failed!");
+  } catch (err) {
+    console.error("Action error:", err);
+    alert("Action failed!");
+  }
+});
