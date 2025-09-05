@@ -64,28 +64,38 @@ async def upload_invoice(file: UploadFile, db: Session = Depends(get_db)):
     invoice_number = f"INV-{datetime.now().strftime('%H%M%S')}"
     vendor_name = "Unknown Vendor"
     total_amount = 0.0
-    status = "pending"
+    status = "unpaid"
 
     # Parse PDF
     try:
         with pdfplumber.open(file_path) as pdf:
             text = ""
             for page in pdf.pages:
-                text += page.extract_text() + "\n"
+                page_text = page.extract_text() or ""
+                text += page_text + "\n"
 
+        print("PDF Extracted Text:\n", text)  # Optional: debug
+
+        # Extract invoice number
         inv_match = re.search(r"Invoice\s*#[:\s]*(\S+)", text, re.IGNORECASE)
-        vendor_match = re.search(r"Vendor\s*[:\s]*(.+)", text, re.IGNORECASE)
-        total_match = re.search(r"Total\s*Amount\s*[:\s]*([\d.,]+)", text, re.IGNORECASE)
-        status_match = re.search(r"Status\s*[:\s]*(\w+)", text, re.IGNORECASE)
-
         if inv_match:
             invoice_number = inv_match.group(1).strip()
+
+        # Extract vendor name
+        vendor_match = re.search(r"Vendor\s*[:\s]*(.+)", text, re.IGNORECASE)
         if vendor_match:
             vendor_name = vendor_match.group(1).strip()
+
+        # Extract total amount
+        total_match = re.search(r"(?:Total\s*Amount|Total)\s*[:\s]*[₹$]?([\d,]+(?:\.\d+)?)", text, re.IGNORECASE)
         if total_match:
             total_amount = float(total_match.group(1).replace(",", ""))
+
+        # Extract status
+        status_match = re.search(r"Status\s*[:\s]*(\w+)", text, re.IGNORECASE)
         if status_match:
             status = status_match.group(1).lower()
+
     except Exception as e:
         print("PDF parsing failed:", e)
 
